@@ -32,7 +32,7 @@ Eigen::VectorXd hdp(4);
 
 Eigen::VectorXd vc(4);
 
-
+ros::Publisher pub_obj;
 
 std::vector<double> quaternion_to_euler(double qw, double qx, double qy, double qz)
 {
@@ -113,7 +113,7 @@ void rc_callback(const sensor_msgs::Joy::ConstPtr& data)
 }
 
 
-void sendvalues(ros::Publisher& pub_obj, const Eigen::VectorXd& vc)
+void sendvalues(const Eigen::VectorXd& vc)
 {
     geometry_msgs::Twist msg;
     msg.linear.x = vc(0);
@@ -126,9 +126,13 @@ void sendvalues(ros::Publisher& pub_obj, const Eigen::VectorXd& vc)
 
 void signalHandler(int signum)
 {
-  ROS_INFO("\nInterrupt signal received. Shutting down...");
-  ros::shutdown();
-  exit(0);
+    ROS_INFO("\nInterrupt signal received. Shutting down...");
+    Eigen::VectorXd vfinal(4); 
+    vfinal << 0,0,0,0;
+
+    sendvalues(vfinal);
+    ros::shutdown();
+    exit(0);
 }
 
 int main(int argc, char** argv)
@@ -141,7 +145,7 @@ int main(int argc, char** argv)
     ros::Subscriber rc_sub = nh.subscribe("/dji_sdk/rc", 10, rc_callback);
   
 
-    ros::Publisher pub_obj = nh.advertise<geometry_msgs::Twist>("/m100/velocityControl", 10);
+    pub_obj = nh.advertise<geometry_msgs::Twist>("/m100/velocityControl", 10);
 
     
 
@@ -303,18 +307,19 @@ int main(int argc, char** argv)
         Eigen::VectorXd control = vcp + K3 * ((K3.inverse() * K4 * ve).array().tanh().matrix());
 
         //Eigen::VectorXd control = vcp;
-
-        Eigen::VectorXd vref = M * control + C * vc + G;
-        // Eigen::VectorXd vref;
+        Eigen::VectorXd vref;
+        vref = M * control + C * vc + G;
+        // 
         // vref << 0,0,0,0;
 
-        sendvalues(pub_obj, vref);
+        sendvalues(vref);
         
         vc_anterior = vc;
         // Esperar para cumplir con la frecuencia de publicación deseada
         rate.sleep();
          
     }
+
 
     return 0;
 }
