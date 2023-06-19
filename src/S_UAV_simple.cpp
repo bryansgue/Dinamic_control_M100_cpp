@@ -5,6 +5,7 @@
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Int32MultiArray.h>
 #include <sensor_msgs/Joy.h>
+#include <csignal>
 
 #include <cmath>
 #include <Eigen/Dense>
@@ -122,21 +123,29 @@ void sendvalues(ros::Publisher& pub_obj, const Eigen::VectorXd& vc)
     pub_obj.publish(msg);
 }
 
+
+void signalHandler(int signum)
+{
+  ROS_INFO("\nInterrupt signal received. Shutting down...");
+  ros::shutdown();
+  exit(0);
+}
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "S_UAV_simple_node");
     ros::NodeHandle nh;
 
-    ros::Subscriber odo_sub = nh.subscribe("/dji_sdk/odometry", 1, odo_callback);
-    ros::Subscriber visual_sub = nh.subscribe("/dji_sdk/visual_servoing/vel/drone", 1, visual_callback);
-    ros::Subscriber rc_sub = nh.subscribe("/dji_sdk/rc", 1, rc_callback);
+    ros::Subscriber odo_sub = nh.subscribe("/dji_sdk/odometry", 10, odo_callback);
+    ros::Subscriber visual_sub = nh.subscribe("/dji_sdk/visual_servoing/vel/drone", 10, visual_callback);
+    ros::Subscriber rc_sub = nh.subscribe("/dji_sdk/rc", 10, rc_callback);
   
 
-    ros::Publisher pub_obj = nh.advertise<geometry_msgs::Twist>("/m100/velocityControl", 1);
+    ros::Publisher pub_obj = nh.advertise<geometry_msgs::Twist>("/m100/velocityControl", 10);
 
     
 
-     std::cout << "OK, controller is running!!!" << std::endl;
+     std::cout << "OK, controller is running!!!!" << std::endl;
 
     double hz = 30;  // Frecuencia de actualización
     double ts = 1 / hz;
@@ -178,7 +187,10 @@ int main(int argc, char** argv)
     double ros_rate = 30;  // Tasa de ROS en Hz
     ros::Rate rate(ros_rate);
 
-    while (true)
+    // Registrar el manejador de señal para SIGINT
+    signal(SIGINT, signalHandler);
+
+    while (ros::ok())
     {
         // Verificar si hay eventos pendientes y llamar a los callbacks
         ros::spinOnce();
